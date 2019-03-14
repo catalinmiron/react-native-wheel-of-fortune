@@ -1,6 +1,10 @@
 # React Native Wheel of Fortune
 
-Youtube tutorial:
+# Run on your device
+
+Snack: https://snack.expo.io/@catalinmiron/react-native-wheel-of-fortune
+
+### Youtube tutorial
 
 [![React Native Wheel of Fortune Youtube tutorial](react-native-wheel-of-fortune-poster-tutorial.png)](https://www.youtube.com/watch?v=tc3G-bO1p8Q)
 
