@@ -2,7 +2,7 @@
 
 Youtube tutorial:
 
-[![React Native Wheel of Fortune Youtube tutorial](react-native-wheel-of-fortune-poster-tutorial.png)](https://www.youtube.com/watch?v=XFtx09yoX0M)
+[![React Native Wheel of Fortune Youtube tutorial](react-native-wheel-of-fortune-poster-tutorial.png)](https://www.youtube.com/watch?v=tc3G-bO1p8Q)
 
 In this lesson we’re going to be building a **Wheel of Fortune** in React Native using react-native-gesture-handler, D3 (d3-shape) and Expo for creating the react-native project.
 
