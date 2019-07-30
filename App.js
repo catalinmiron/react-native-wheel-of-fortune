@@ -72,8 +72,13 @@ export default class App extends React.Component {
 
   _getWinnerIndex = () => {
     const deg = Math.abs(Math.round(this.angle % oneTurn));
-    return Math.floor(deg / angleBySegment);
-  };
+    // wheel turning counterclockwise
+    if(this.angle < 0) {
+      return Math.floor(deg / angleBySegment);
+    }
+    // wheel turning clockwise
+    return (numberOfSegments - Math.floor(deg / angleBySegment)) % numberOfSegments;
+};
 
   _onPan = ({ nativeEvent }) => {
     if (nativeEvent.state === State.END) {
