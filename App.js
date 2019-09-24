@@ -111,12 +111,14 @@ class WheelOfFortune extends Component {
 
     _onPress = () => {
 
+        const duration = this.props.duration || 10000;
+
         this.setState({
             started: true
         })
         Animated.timing(this._angle, {
-            toValue: 365 - ((this.winner - 1) * (this.oneTurn / this.numberOfSegments)) + (360 * 20),
-            duration: this.props.duration ? this.props.duration : 10000,
+            toValue: 365 - ((this.winner) * (this.oneTurn / this.numberOfSegments)) + (360 * (duration/1000)),
+            duration: duration,
             useNativeDriver: true
         }).start(() => {
             const winnerIndex = this._getwinnerIndex();
@@ -171,6 +173,8 @@ class WheelOfFortune extends Component {
             })}
         </Text>
     )
+
+
 
     _renderSvgWheel = () => {
         return (
@@ -311,6 +315,13 @@ class WheelOfFortune extends Component {
                 </TouchableOpacity>
 
                 {this._renderTopToPlay()}
+
+                { /** wheelofLuck Image  */}
+                
+                  
+               
+
+               
 
             </View>
         );
