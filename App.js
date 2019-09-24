@@ -1,253 +1,350 @@
-import React from 'react';
+import React, { Component } from "react";
 import {
-  StyleSheet,
-  View,
-  Text as RNText,
-  Dimensions,
-  Animated
-} from 'react-native';
-import { GestureHandler, Svg } from 'expo';
+    View,
+    StyleSheet,
+    Text as RNText,
+    Dimensions,
+    Animated,
+    TouchableOpacity,
+    Image as RNImage,
+} from "react-native";
 import * as d3Shape from 'd3-shape';
-import color from 'randomcolor';
-import { snap } from '@popmotion/popcorn';
-const { PanGestureHandler, State } = GestureHandler;
-const { Path, G, Text, TSpan } = Svg;
-const { width } = Dimensions.get('screen');
 
-const numberOfSegments = 12;
-const wheelSize = width * 0.95;
-const fontSize = 26;
-const oneTurn = 360;
-const angleBySegment = oneTurn / numberOfSegments;
-const angleOffset = angleBySegment / 2;
-const knobFill = color({ hue: 'purple' });
+import Svg, {
+    G,
+    Text,
+    TSpan,
+    Path,
+    Image,
+    Circle,
+    ClipPath,
+    Defs
+} from 'react-native-svg';
+const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 
-const makeWheel = () => {
-  const data = Array.from({ length: numberOfSegments }).fill(1);
-  const arcs = d3Shape.pie()(data);
-  const colors = color({
-    luminosity: 'dark',
-    count: numberOfSegments
-  });
 
-  return arcs.map((arc, index) => {
-    const instance = d3Shape
-      .arc()
-      .padAngle(0.01)
-      .outerRadius(width / 2)
-      .innerRadius(20);
+const { width, height } = Dimensions.get('screen');
 
-    return {
-      path: instance(arc),
-      color: colors[index],
-      value: Math.round(Math.random() * 10 + 1) * 200, //[200, 2200]
-      centroid: instance.centroid(arc)
-    };
-  });
-};
 
-export default class App extends React.Component {
-  _wheelPaths = makeWheel();
-  _angle = new Animated.Value(0);
-  angle = 0;
+class WheelOfFortune extends Component {
 
-  state = {
-    enabled: true,
-    finished: false,
-    winner: null
-  };
 
-  componentDidMount() {
-    this._angle.addListener(event => {
-      if (this.state.enabled) {
-        this.setState({
-          enabled: false,
-          finished: false
-        });
-      }
+    constructor(props) {
+        super(props);
+        this.state = {
+            enabled: false,
+            started: false,
+            finished: false,
+            winner: null,
+            gameScreen: new Animated.Value(width - 40),
+            wheelOpacity: new Animated.Value(1),
+            imageLeft: new Animated.Value((width / 2) - 30),
+            imageTop: new Animated.Value((height / 2) - 70),
+        };
 
-      this.angle = event.value;
-    });
-  }
 
-  _getWinnerIndex = () => {
-    const deg = Math.abs(Math.round(this.angle % oneTurn));
-    // wheel turning counterclockwise
-    if(this.angle < 0) {
-      return Math.floor(deg / angleBySegment);
+
+        this.Rewards = this.props.rewards;
+        this.RewardCount = this.Rewards.length
+
+        this.numberOfSegments = this.RewardCount;
+        this.fontSize = 20;
+        this.oneTurn = 360;
+        this.angleBySegment = this.oneTurn / this.numberOfSegments;
+        this.angleOffset = this.angleBySegment / 2;
+        this.winner = this.props.winner ? this.props.winner : Math.floor(Math.random() * this.numberOfSegments);
+
+        this._wheelPaths = this.makeWheel();
+        this._angle = new Animated.Value(0);
+        this.angle = 0;
+
+        this.props.onRef(this)
+
     }
-    // wheel turning clockwise
-    return (numberOfSegments - Math.floor(deg / angleBySegment)) % numberOfSegments;
-};
 
-  _onPan = ({ nativeEvent }) => {
-    if (nativeEvent.state === State.END) {
-      const { velocityY } = nativeEvent;
-
-      Animated.decay(this._angle, {
-        velocity: velocityY / 1000,
-        deceleration: 0.999,
-        useNativeDriver: true
-      }).start(() => {
-        this._angle.setValue(this.angle % oneTurn);
-        const snapTo = snap(oneTurn / numberOfSegments);
-        Animated.timing(this._angle, {
-          toValue: snapTo(this.angle),
-          duration: 300,
-          useNativeDriver: true
-        }).start(() => {
-          const winnerIndex = this._getWinnerIndex();
-          this.setState({
-            enabled: true,
-            finished: true,
-            winner: this._wheelPaths[winnerIndex].value
-          });
-        });
-        // do something here;
-      });
+    componentWillUnmount(){
+        this.props.onRef(undefined)
     }
-  };
-  render() {
-    return (
-      <PanGestureHandler
-        onHandlerStateChange={this._onPan}
-        enabled={this.state.enabled}
-      >
-        <View style={styles.container}>
-          {this._renderSvgWheel()}
-          {this.state.finished && this.state.enabled && this._renderWinner()}
-        </View>
-      </PanGestureHandler>
-    );
-  }
 
-  _renderKnob = () => {
-    const knobSize = 30;
-    // [0, numberOfSegments]
-    const YOLO = Animated.modulo(
-      Animated.divide(
-        Animated.modulo(Animated.subtract(this._angle, angleOffset), oneTurn),
-        new Animated.Value(angleBySegment)
-      ),
-      1
-    );
-
-    return (
-      <Animated.View
-        style={{
-          width: knobSize,
-          height: knobSize * 2,
-          justifyContent: 'flex-end',
-          zIndex: 1,
-          transform: [
-            {
-              rotate: YOLO.interpolate({
-                inputRange: [-1, -0.5, -0.0001, 0.0001, 0.5, 1],
-                outputRange: ['0deg', '0deg', '35deg', '-35deg', '0deg', '0deg']
-              })
+    componentDidMount() {
+        this._angle.addListener(event => {
+            if (this.state.enabled) {
+                this.setState({
+                    enabled: false,
+                    finished: false
+                });
             }
-          ]
-        }}
-      >
-        <Svg
-          width={knobSize}
-          height={(knobSize * 100) / 57}
-          viewBox={`0 0 57 100`}
-          style={{ transform: [{ translateY: 8 }] }}
-        >
-          <Path
-            d="M28.034,0C12.552,0,0,12.552,0,28.034S28.034,100,28.034,100s28.034-56.483,28.034-71.966S43.517,0,28.034,0z   M28.034,40.477c-6.871,0-12.442-5.572-12.442-12.442c0-6.872,5.571-12.442,12.442-12.442c6.872,0,12.442,5.57,12.442,12.442  C40.477,34.905,34.906,40.477,28.034,40.477z"
-            fill={knobFill}
-          />
+
+            this.angle = event.value;
+        });
+    }
+
+    makeWheel = () => {
+        const data = Array.from({ length: this.numberOfSegments }).fill(1);
+        const arcs = d3Shape.pie()(data);
+        var colors = this.props.colors ? this.props.colors : ['#E07026', '#E8C22E', '#ABC937', '#4F991D', '#22AFD3', '#5858D0', '#7B48C8', '#D843B9', '#E23B80', '#D82B2B'];
+        return arcs.map((arc, index) => {
+            const instance = d3Shape
+                .arc()
+                .padAngle(0.01)
+                .outerRadius(width / 2)
+                .innerRadius( this.props.innerRadius );
+            return {
+                path: instance(arc),
+                color: colors[ index % colors.length ],
+                value: this.Rewards[index],
+                centroid: instance.centroid(arc)
+            };
+        });
+    };
+
+    _getwinnerIndex = () => {
+        const deg = Math.abs(Math.round(this.angle % this.oneTurn));
+        // wheel turning counterclockwise
+        if (this.angle < 0) {
+            return Math.floor(deg / this.angleBySegment);
+        }
+        // wheel turning clockwise
+        return (this.numberOfSegments - Math.floor(deg / this.angleBySegment)) % this.numberOfSegments;
+
+    };
+
+    _onPress = () => {
+
+        const duration = this.props.duration || 10000;
+
+        this.setState({
+            started: true
+        })
+        Animated.timing(this._angle, {
+            toValue: 365 - ((this.winner) * (this.oneTurn / this.numberOfSegments)) + (360 * (duration/1000)),
+            duration: duration,
+            useNativeDriver: true
+        }).start(() => {
+            const winnerIndex = this._getwinnerIndex();
+            this.setState({
+                finished: true,
+                winner: this._wheelPaths[winnerIndex].value
+            });
+            this.props.getWinner(this._wheelPaths[winnerIndex].value, winnerIndex)
+        });
+
+    };
+
+    _imageRender = ( x, y, value, size ) => (
+        <Svg height="60" width="60">
+            <Defs>
+                <ClipPath id="clip">
+                <Circle x={x} y={y} r={size/2} />
+                </ClipPath>
+            </Defs>
+            <Image
+                x={x-size/2}
+                y={y-size/2}
+                width={size}
+                height={size}
+                preserveAspectRatio="xMidYMid slice"
+                opacity="1"
+                href={ value }
+                clipPath="url(#clip)"
+            /> 
         </Svg>
-      </Animated.View>
-    );
-  };
+    )
 
-  _renderWinner = () => {
-    return (
-      <RNText style={styles.winnerText}>Winner is: {this.state.winner}</RNText>
-    );
-  };
-
-  _renderSvgWheel = () => {
-    return (
-      <View style={styles.container}>
-        {this._renderKnob()}
-        <Animated.View
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform: [
-              {
-                rotate: this._angle.interpolate({
-                  inputRange: [-oneTurn, 0, oneTurn],
-                  outputRange: [`-${oneTurn}deg`, `0deg`, `${oneTurn}deg`]
-                })
-              }
-            ]
-          }}
+    _textRender =  ( x, y, value, size, i ) => (
+        <Text
+            x={x}
+            y={y - size}
+            fill={this.props.textColor ? this.props.textColor : '#fff'}
+            textAnchor="middle"
+            fontSize={this.fontSize}
         >
-          <Svg
-            width={wheelSize}
-            height={wheelSize}
-            viewBox={`0 0 ${width} ${width}`}
-            style={{ transform: [{ rotate: `-${angleOffset}deg` }] }}
-          >
-            <G y={width / 2} x={width / 2}>
-              {this._wheelPaths.map((arc, i) => {
-                const [x, y] = arc.centroid;
-                const number = arc.value.toString();
-
+            {Array.from({ length: value.length }).map((_, j) => {
                 return (
-                  <G key={`arc-${i}`}>
-                    <Path d={arc.path} fill={arc.color} />
-                    <G
-                      rotation={(i * oneTurn) / numberOfSegments + angleOffset}
-                      origin={`${x}, ${y}`}
-                    >
-                      <Text
+                    <TSpan
                         x={x}
-                        y={y - 70}
-                        fill="white"
-                        textAnchor="middle"
-                        fontSize={fontSize}
-                      >
-                        {Array.from({ length: number.length }).map((_, j) => {
-                          return (
-                            <TSpan
-                              x={x}
-                              dy={fontSize}
-                              key={`arc-${i}-slice-${j}`}
-                            >
-                              {number.charAt(j)}
-                            </TSpan>
-                          );
-                        })}
-                      </Text>
-                    </G>
-                  </G>
+                        dy={this.fontSize}
+                        key={`arc-${i}-slice-${j}`}
+                    >
+
+                        {value.toString().charAt(j)}
+                    </TSpan>
                 );
-              })}
-            </G>
-          </Svg>
-        </Animated.View>
-      </View>
-    );
-  };
+            })}
+        </Text>
+    )
+
+
+
+    _renderSvgWheel = () => {
+        return (
+            <View style={styles.container}>
+                {this._renderKnob()}
+                <Animated.View
+                    style={{
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transform: [
+                            {
+                                rotate: this._angle.interpolate({
+                                    inputRange: [-this.oneTurn, 0, this.oneTurn],
+                                    outputRange: [`-${this.oneTurn}deg`, `0deg`, `${this.oneTurn}deg`]
+                                })
+                            },
+
+                        ],
+                        backgroundColor: this.props.backgroundColor ? this.props.backgroundColor : '#fff',
+                        width: width - 20,
+                        height: width - 20,
+                        borderRadius: (width - 20) / 2,
+                        borderWidth: this.props.borderWidth ? this.props.borderWidth : 2,
+                        borderColor: this.props.borderColor ? this.props.borderColor : '#fff',
+                        opacity: this.state.wheelOpacity
+                    }}
+                >
+
+                    <AnimatedSvg
+                        width={this.state.gameScreen}
+                        height={this.state.gameScreen}
+                        viewBox={`0 0 ${width} ${width}`}
+                        style={{ transform: [{ rotate: `-${this.angleOffset}deg` }], margin: 10, }}
+                    >
+
+                        <G y={width / 2} x={width / 2}>
+                            {this._wheelPaths.map((arc, i) => {
+                                const [x, y] = arc.centroid;
+
+                                return (
+                                    <G key={`arc-${i}`}>
+
+                                        <Path d={arc.path} strokeWidth={2} fill={arc.color} />
+                                        <G
+                                            rotation={(i * this.oneTurn) / this.numberOfSegments + this.angleOffset}
+                                            origin={`${x}, ${y}`}
+                                        >
+                                        {
+                                            typeof(arc.value) === "object" ?
+                                            this._imageRender( x, y, arc.value, 60 ) :
+                                            this._textRender( x, y, arc.value, 60, i )
+                                        }
+                                        </G>
+                                    </G>
+                                );
+                            })}
+                        </G>
+                    </AnimatedSvg>
+                </Animated.View>
+            </View>
+        );
+    };
+
+
+    _renderKnob = () => {
+        const knobSize = this.props.knobSize ? this.props.knobSize : 20;
+        // [0, this.numberOfSegments]
+        const YOLO = Animated.modulo(
+            Animated.divide(
+                Animated.modulo(Animated.subtract(this._angle, this.angleOffset), this.oneTurn),
+                new Animated.Value(this.angleBySegment)
+            ),
+            1
+        );
+
+        return (
+            <Animated.View
+                style={{
+                    width: knobSize,
+                    height: knobSize * 2,
+                    justifyContent: 'flex-end',
+                    zIndex: 1,
+                    opacity: this.state.wheelOpacity,
+                    transform: [
+                        {
+                            rotate: YOLO.interpolate({
+                                inputRange: [-1, -0.5, -0.0001, 0.0001, 0.5, 1],
+                                outputRange: ['0deg', '0deg', '35deg', '-35deg', '0deg', '0deg']
+                            })
+                        }
+                    ]
+                }}
+            >
+                <Svg
+                    width={knobSize}
+                    height={(knobSize * 100) / 57}
+                    viewBox={`0 0 57 100`}
+                    style={{ transform: [{ translateY: 8 }] }}
+                >
+                    <RNImage
+                        source={ this.props.knoobSource ? this.props.knoobSource : require('../assets/images/knoob.png') }
+                        style={{ width: knobSize, height: (knobSize * 100) / 57 }}
+                    />
+                </Svg>
+            </Animated.View>
+        );
+    };
+
+    _renderTopToPlay() {
+        if (this.state.started == false) {
+            if (this.props.playButton) {
+                return (
+                    <TouchableOpacity onPress={() => this._onPress()}>
+                        {this.props.playButton()}
+                    </TouchableOpacity>
+                );
+            } else {
+                return (
+                    <View style={styles.modal}>
+                        <TouchableOpacity onPress={() => this._onPress()}>
+                            <RNText style={styles.startText}>TAPTOPLAY</RNText>
+                        </TouchableOpacity>
+                    </View>
+                );
+            }
+        }
+    }
+
+    render() {
+        return (
+            <View style={styles.container}>
+
+                { /** SVG WHEEL  */}
+                <TouchableOpacity style={{ position: 'absolute', width: width, height: height / 2, justifyContent: 'center', alignItems: 'center' }}>
+                    <Animated.View style={[styles.content, { padding: 10 }]}>
+                        {this._renderSvgWheel()}
+                    </Animated.View>
+                </TouchableOpacity>
+
+                {this._renderTopToPlay()}
+
+                { /** wheelofLuck Image  */}
+                
+                  
+               
+
+               
+
+            </View>
+        );
+    }
 }
+export default WheelOfFortune;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  winnerText: {
-    fontSize: 32,
-    fontFamily: 'Menlo',
-    position: 'absolute',
-    bottom: 10
-  }
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    content: {
+    },
+    startText: {
+        fontSize: 50,
+        color: '#fff',
+        fontWeight: 'bold',
+        textShadowColor: 'rgba(0, 0, 0, 0.4)',
+        textShadowOffset: { width: -1, height: 1 },
+        textShadowRadius: 10
+
+    }
 });
+
